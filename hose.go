@@ -10,15 +10,89 @@ import (
 
 const BUFFER_SIZE = 10000
 
-var INVALID_USAGE = cli.NewExitError("invalid usage", 1)
-var MISSING_FILE_ERROR = cli.NewExitError("file not found", 1)
+var USAGE_ERROR = cli.NewExitError("invalid usage", 1)
+var MISSING_FILE_ERROR = cli.NewExitError("input file not found", 1)
 
-func slice(input string, from, to int, output string) error {
+func readInputs(paths []string, buffer chan string, errorChan chan error) {
+	defer close(buffer)
+	defer close(errorChan)
+	for _, path := range paths {
+
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			errorChan <- MISSING_FILE_ERROR
+			return
+		}
+
+		f, err := os.Open(path)
+		if err != nil {
+			errorChan <- cli.NewExitError("failed to open file", 2)
+			return
+		}
+
+		reader := bufio.NewReader(f)
+		fileDone := false
+
+		for !fileDone {
+
+			line, err := reader.ReadString('\n')
+			if err == io.EOF {
+				fileDone = true
+			} else if err != nil {
+				errorChan <- cli.NewExitError("failed to read line from file", 2)
+				return
+			}
+
+			buffer <- line
+		}
+	}
+	return
+}
+
+func handleLines(target *bufio.Writer, buffer chan string, nLines int) error {
+	defer target.Flush()
+	i := 0
+	for line := range buffer {
+		_, err := target.WriteString(line)
+		if err != nil {
+			return cli.NewExitError("failed to write line to file", 3)
+		}
+
+		i++
+		if i == nLines {
+			break
+		}
+	}
+	return nil
+}
+
+func merge(inputs cli.Args, output *bufio.Writer) error {
 	pending := make(chan string, BUFFER_SIZE)
+	ret := make(chan error)
+
+	go readInputs(inputs, pending, ret)
+	err, ok := <-ret
+	if ok {
+		return err
+	}
+	handleLines(output, pending, -1)
+	return nil
+}
+
+func slice(input string, from, to int, output *bufio.Writer) error {
+	if from < 0 {
+		return USAGE_ERROR
+	}
+
+	pending := make(chan string, BUFFER_SIZE)
+	ret := make(chan error)
 
 	inputs := []string{}
 	inputs = append(inputs, string(input))
-	go readInputs(inputs, pending)
+	go readInputs(inputs, pending, ret)
+	err, ok := <-ret
+	if ok {
+		return err
+	}
 
 	i := 0
 	for i != from {
@@ -33,92 +107,25 @@ func slice(input string, from, to int, output string) error {
 	return nil
 }
 
-func readInputs(paths []string, buffer chan string) error {
-	defer close(buffer)
-	for _, path := range paths {
-
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			return MISSING_FILE_ERROR
-		}
-
-		f, err := os.Open(path)
-		if err != nil {
-			return cli.NewExitError("failed to open file", 2)
-		}
-
-		reader := bufio.NewReader(f)
-		fileDone := false
-
-		for !fileDone {
-
-			line, err := reader.ReadString('\n')
-			if err == io.EOF {
-				fileDone = true
-			} else if err != nil {
-				return cli.NewExitError("failed to read line from file", 2)
-			}
-
-			buffer <- line
-		}
-	}
-	return nil
-}
-
-func handleLines(target string, buffer chan string, nLines int) error {
-	i := 0
-	if len(target) == 0 {
-
-		for line := range buffer {
-			_, err := os.Stdout.WriteString(line)
-			if err != nil {
-				return cli.NewExitError("failed to write line", 3)
-			}
-
-			i++
-			if i == nLines {
-				break
-			}
-		}
-
+func createOutput(path string) (*bufio.Writer, error) {
+	var writer io.Writer
+	var err error
+	if path == "" {
+		writer = os.Stdout
 	} else {
-
-		f, err := os.Create(target)
+		writer, err = os.Create(path)
 		if err != nil {
-			return cli.NewExitError("failed to create output file", 3)
-		}
-		fout := bufio.NewWriter(f)
-		for line := range buffer {
-			_, err := fout.WriteString(line)
-			if err != nil {
-				return cli.NewExitError("failed to write line to file", 3)
-			}
-
-			i++
-			if i == nLines {
-				break
-			}
-		}
-
-		err = fout.Flush()
-		if err != nil {
-			return cli.NewExitError("failed to flush write buffer", 3)
+			return &bufio.Writer{}, cli.NewExitError("failed to create output file", 3)
 		}
 	}
-	return nil
-}
-
-func merge(inputs cli.Args, output string) error {
-	pending := make(chan string, BUFFER_SIZE)
-
-	go readInputs(inputs, pending)
-	handleLines(output, pending, -1)
-	return nil
+	buffer := bufio.NewWriter(writer)
+	return buffer, nil
 }
 
 func main() {
 	app := cli.NewApp()
 	app.Name = "hose"
-	app.Version = "0.1.0"
+	app.Version = "0.1.1"
 	app.Usage = "Merge and slice big text row-based datasets"
 	app.Authors = []cli.Author{cli.Author{Name: "Nat Wilson"}}
 
@@ -138,9 +145,14 @@ func main() {
 			Action: func(c *cli.Context) error {
 				if len(c.Args()) < 1 {
 					cli.ShowCommandHelp(c, "merge")
-					return INVALID_USAGE
+					return USAGE_ERROR
 				}
-				return merge(c.Args(), c.String("output"))
+
+				fout, err := createOutput(c.String("output"))
+				if err != nil {
+					return err
+				}
+				return merge(c.Args(), fout)
 			},
 		},
 
@@ -171,9 +183,14 @@ func main() {
 				}
 				if len(c.Args()) < 1 {
 					cli.ShowCommandHelp(c, "slice")
-					return INVALID_USAGE
+					return USAGE_ERROR
 				}
-				return slice(c.Args().First(), c.Int("from"), c.Int("to"), c.String("output"))
+
+				fout, err := createOutput(c.String("output"))
+				if err != nil {
+					return err
+				}
+				return slice(c.Args().First(), c.Int("from"), c.Int("to"), fout)
 			},
 		},
 	}
