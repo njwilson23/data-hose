@@ -7,13 +7,16 @@ import (
 	"strconv"
 )
 
-type LibSVMFormat struct {
-	readBuffer  bufio.Reader
-	writeBuffer bufio.Writer
+type LibSVMReader struct {
+	buffer *bufio.Reader
+}
+
+type LibSVMWriter struct {
+	buffer *bufio.Writer
 }
 
 // WriteString outputs a libSVM representation of a Row
-func (f *LibSVMFormat) WriteRow(row *Row, options *rowWriteOptions) error {
+func (rowWriter *LibSVMWriter) WriteRow(row *Row, options *rowWriteOptions) error {
 	var buffer bytes.Buffer
 
 	targetEmpty := true
@@ -21,6 +24,7 @@ func (f *LibSVMFormat) WriteRow(row *Row, options *rowWriteOptions) error {
 		if colNum == options.targetCol {
 			buffer.WriteString(row.Values[i])
 			targetEmpty = false
+			break
 		}
 	}
 	if targetEmpty {
@@ -37,12 +41,12 @@ func (f *LibSVMFormat) WriteRow(row *Row, options *rowWriteOptions) error {
 		buffer.WriteString(row.Values[i])
 	}
 	buffer.WriteRune('\n')
-	f.writeBuffer.WriteString(buffer.String())
+	rowWriter.buffer.WriteString(buffer.String())
 	return nil
 }
 
-func (f *LibSVMFormat) ReadRow(options *rowReadOptions) (*Row, error) {
-	line, err := f.readBuffer.ReadString('\n')
+func (rowReader *LibSVMReader) ReadRow(options *rowReadOptions) (*Row, error) {
+	line, err := rowReader.buffer.ReadString('\n')
 	buffer := bytes.Buffer{}
 
 	cnt := 0
