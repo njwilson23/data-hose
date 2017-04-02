@@ -2,11 +2,10 @@ package main
 
 import (
 	"bufio"
-
-	"github.com/urfave/cli"
+	"io"
 )
 
-func merge(inputs cli.Args, output *bufio.Writer) error {
+func merge(inputs []io.Reader, output *bufio.Writer) error {
 	pending := make(chan string, BUFFER_SIZE)
 	ret := make(chan error)
 

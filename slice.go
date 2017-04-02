@@ -2,12 +2,13 @@ package main
 
 import (
 	"bufio"
+	"io"
 	"os"
 
 	"github.com/urfave/cli"
 )
 
-func slice(input string, from, to int, output *bufio.Writer) error {
+func slice(input io.Reader, from, to int, output *bufio.Writer) error {
 	if to != -1 && (to <= from) {
 		os.Stderr.WriteString("--from argument must be greater than --to argument\n")
 		return USAGE_ERROR
@@ -20,8 +21,7 @@ func slice(input string, from, to int, output *bufio.Writer) error {
 	pending := make(chan string, BUFFER_SIZE)
 	ret := make(chan error)
 
-	inputs := []string{}
-	inputs = append(inputs, string(input))
+	inputs := []io.Reader{input}
 	go readInputs(inputs, pending, ret)
 	err, ok := <-ret
 	if ok {
@@ -30,11 +30,10 @@ func slice(input string, from, to int, output *bufio.Writer) error {
 
 	i := 0
 	for i != from {
-		line, ok := <-pending
+		_, ok := <-pending
 		if !ok {
 			return cli.NewExitError("slice beginning not reached", 2)
 		}
-		pending <- line
 		i++
 	}
 	handleLines(output, pending, to-from)

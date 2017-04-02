@@ -15,32 +15,19 @@ var MISSING_FILE_ERROR = cli.NewExitError("input file not found", 1)
 
 // readInputs opens a list of file paths sequentially, sending their contents
 // line-by-line into a string channel
-func readInputs(paths []string, buffer chan string, errorChan chan error) {
+func readInputs(files []io.Reader, buffer chan string, errorChan chan error) {
 	defer close(buffer)
 	defer close(errorChan)
-	for _, path := range paths {
-
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			errorChan <- MISSING_FILE_ERROR
-			return
-		}
-
-		f, err := os.Open(path)
-		if err != nil {
-			errorChan <- cli.NewExitError("failed to open file", 2)
-			return
-		}
-
-		reader := bufio.NewReader(f)
+	for _, file := range files {
+		reader := bufio.NewReader(file)
 		fileDone := false
 
 		for !fileDone {
-
 			line, err := reader.ReadString('\n')
 			if err == io.EOF {
 				fileDone = true
 			} else if err != nil {
-				errorChan <- cli.NewExitError("failed to read line from file", 2)
+				errorChan <- cli.NewExitError(err, 2)
 				return
 			} else {
 				buffer <- line
@@ -77,7 +64,7 @@ func createOutput(path string) (*bufio.Writer, error) {
 	} else {
 		writer, err = os.Create(path)
 		if err != nil {
-			return &bufio.Writer{}, cli.NewExitError("failed to create output file", 3)
+			return &bufio.Writer{}, cli.NewExitError(err, 3)
 		}
 	}
 	buffer := bufio.NewWriter(writer)
@@ -114,7 +101,22 @@ func main() {
 				if err != nil {
 					return err
 				}
-				return merge(c.Args(), fout)
+
+				files := make([]io.Reader, len(c.Args()))
+				for i, path := range c.Args() {
+					if _, err := os.Stat(path); os.IsNotExist(err) {
+						return MISSING_FILE_ERROR
+					}
+
+					f, err := os.Open(path)
+					if err != nil {
+						return cli.NewExitError("failed to open file", 2)
+					}
+
+					files[i] = f
+				}
+
+				return merge(files, fout)
 			},
 		},
 
@@ -149,7 +151,17 @@ func main() {
 				if err != nil {
 					return err
 				}
-				return slice(c.Args().First(), c.Int("from"), c.Int("to"), fout)
+
+				if _, err := os.Stat(c.Args().First()); os.IsNotExist(err) {
+					return MISSING_FILE_ERROR
+				}
+
+				f, err := os.Open(c.Args().First())
+				if err != nil {
+					return cli.NewExitError(err, 1)
+				}
+
+				return slice(f, c.Int("from"), c.Int("to"), fout)
 			},
 		},
 
