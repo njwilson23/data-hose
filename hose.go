@@ -13,6 +13,8 @@ const BUFFER_SIZE = 10000
 var USAGE_ERROR = cli.NewExitError("invalid usage", 1)
 var MISSING_FILE_ERROR = cli.NewExitError("input file not found", 1)
 
+// readInputs opens a list of file paths sequentially, sending their contents
+// line-by-line into a string channel
 func readInputs(paths []string, buffer chan string, errorChan chan error) {
 	defer close(buffer)
 	defer close(errorChan)
@@ -40,14 +42,15 @@ func readInputs(paths []string, buffer chan string, errorChan chan error) {
 			} else if err != nil {
 				errorChan <- cli.NewExitError("failed to read line from file", 2)
 				return
+			} else {
+				buffer <- line
 			}
-
-			buffer <- line
 		}
 	}
 	return
 }
 
+// handleLines writes strings up to nLines from a channel to a buffered target
 func handleLines(target *bufio.Writer, buffer chan string, nLines int) error {
 	defer target.Flush()
 	i := 0
@@ -65,48 +68,7 @@ func handleLines(target *bufio.Writer, buffer chan string, nLines int) error {
 	return nil
 }
 
-func merge(inputs cli.Args, output *bufio.Writer) error {
-	pending := make(chan string, BUFFER_SIZE)
-	ret := make(chan error)
-
-	go readInputs(inputs, pending, ret)
-	err, ok := <-ret
-	if ok {
-		return err
-	}
-	handleLines(output, pending, -1)
-	return nil
-}
-
-func slice(input string, from, to int, output *bufio.Writer) error {
-	if from < 0 {
-		return USAGE_ERROR
-	}
-
-	pending := make(chan string, BUFFER_SIZE)
-	ret := make(chan error)
-
-	inputs := []string{}
-	inputs = append(inputs, string(input))
-	go readInputs(inputs, pending, ret)
-	err, ok := <-ret
-	if ok {
-		return err
-	}
-
-	i := 0
-	for i != from {
-		line, ok := <-pending
-		if !ok {
-			return cli.NewExitError("slice beginning not reached", 2)
-		}
-		pending <- line
-		i++
-	}
-	handleLines(output, pending, to-from)
-	return nil
-}
-
+// createOutput abstracts writing to a file versus writing to stdout
 func createOutput(path string) (*bufio.Writer, error) {
 	var writer io.Writer
 	var err error
@@ -125,8 +87,8 @@ func createOutput(path string) (*bufio.Writer, error) {
 func main() {
 	app := cli.NewApp()
 	app.Name = "hose"
-	app.Version = "0.1.1"
-	app.Usage = "Merge and slice big text row-based datasets"
+	app.Version = "0.2.0"
+	app.Usage = "Utility for managing big row-based datasets"
 	app.Authors = []cli.Author{cli.Author{Name: "Nat Wilson"}}
 
 	app.Commands = []cli.Command{
@@ -178,9 +140,6 @@ func main() {
 			},
 
 			Action: func(c *cli.Context) error {
-				if (c.Int("to") != -1) && (c.Int("to") <= c.Int("from")) {
-					return cli.NewExitError("--from argument must be greater than --to argument", 1)
-				}
 				if len(c.Args()) < 1 {
 					cli.ShowCommandHelp(c, "slice")
 					return USAGE_ERROR
@@ -191,6 +150,41 @@ func main() {
 					return err
 				}
 				return slice(c.Args().First(), c.Int("from"), c.Int("to"), fout)
+			},
+		},
+
+		{
+			Name:  "convert",
+			Usage: "convert from one text-based format to another",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "output, o",
+					Value: "",
+					Usage: "`PATH` to direct output to (if not given, writes to stdout)",
+				},
+				cli.StringFlag{
+					Name:  "from, f",
+					Value: "",
+					Usage: "`FORMAT` to convert from",
+				},
+				cli.StringFlag{
+					Name:  "to, t",
+					Value: "",
+					Usage: "`FORMAT` to convert to",
+				},
+			},
+
+			Action: func(c *cli.Context) error {
+				/*if len(c.Args()) < 1 {
+					cli.ShowCommandHelp(c, "convert")
+					return USAGE_ERROR
+				}*/
+
+				/*fout, err := createOutput(c.String("output"))
+				if err != nil {
+					return err
+				}*/
+				return cli.NewExitError("not implemented", 3)
 			},
 		},
 	}

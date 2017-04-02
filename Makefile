@@ -1,8 +1,9 @@
+SOURCE = hose.go csv2lsvm.go
 
-all: hose.go dist
+all: $(SOURCE) dist
 	go build -v -o dist/hose
 
-windows: hose.go dist
+windows: $(SOURCE) dist
 	env GOOS=windows GOARCH=amd64 go build -o dist/hose.exe
 
 dist:
