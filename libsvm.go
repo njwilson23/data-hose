@@ -49,41 +49,42 @@ func (rowReader *LibSVMReader) ReadRow(options *rowReadOptions) (*Row, error) {
 	line, err := rowReader.buffer.ReadString('\n')
 	buffer := bytes.Buffer{}
 
+	// Read the target value
 	cnt := 0
 	for _, b := range line {
 		cnt++
-		switch b {
-		case ' ':
+		if b == ' ' {
 			break
-		default:
-			buffer.WriteRune(b)
 		}
+		buffer.WriteRune(b)
 	}
 
-	schema := []int{-1}
+	schema := []int{0}
 	values := []string{buffer.String()}
 	buffer.Reset()
 
+	// Read the feature values
 	var colNum int
-
-	readingSchema := true
+	readingValue := true
 	for _, b := range line[cnt:] {
-		if b == ' ' {
-			if readingSchema && buffer.Len() != 0 {
+		switch b {
+		case ' ', '\n':
+			if readingValue && buffer.Len() != 0 {
+				values = append(values, buffer.String())
+				buffer.Reset()
+				readingValue = false
+			}
+		case ':':
+			if buffer.Len() != 0 {
 				colNum, err = strconv.Atoi(buffer.String())
 				if err != nil {
 					return &Row{}, err
 				}
-				schema = append(schema, colNum)
+				schema = append(schema, colNum+1)
 				buffer.Reset()
-			} else if !readingSchema {
-				values = append(values, buffer.String())
-				buffer.Reset()
-				readingSchema = true
 			}
-		} else if b == ':' {
-			readingSchema = false
-		} else {
+			readingValue = true
+		default:
 			buffer.WriteRune(b)
 		}
 	}
