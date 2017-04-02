@@ -2,35 +2,19 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"testing"
 )
 
-type mockWriter struct {
-	Content []byte
-}
-
-func (w *mockWriter) Write(p []byte) (int, error) {
-	w.Content = append(w.Content, p...)
-	return len(p), nil
-}
-
-func (w *mockWriter) String() string {
-	return string(w.Content)
-}
-
-/*func NewTestCSVReader() (*CSVReader, *mockWriter) {
-	return &CSVReader{&bufio.Reader{}}, &mw
-}*/
-
-func NewTestCSVWriter() (*CSVWriter, *mockWriter) {
-	mw := mockWriter{}
-	return &CSVWriter{bufio.NewWriter(&mw)}, &mw
+func NewTestCSVWriter() (*CSVWriter, *bytes.Buffer) {
+	buffer := bytes.Buffer{}
+	return &CSVWriter{bufio.NewWriter(&buffer)}, &buffer
 }
 
 func TestWriteCSVRow(t *testing.T) {
-	f, mw := NewTestCSVWriter()
+	f, b := NewTestCSVWriter()
 	names := ColumnNames([]string{"a", "b", "c"})
 
 	row := &Row{
@@ -41,12 +25,12 @@ func TestWriteCSVRow(t *testing.T) {
 	f.WriteRow(row, &rowWriteOptions{})
 	f.buffer.Flush()
 
-	if mw.String() != "1.5,2.5,3.5\n" {
+	if b.String() != "1.5,2.5,3.5\n" {
 		t.Fail()
 	}
 
 	// missing value
-	mw.Content = []byte{}
+	f, b = NewTestCSVWriter()
 	names = ColumnNames([]string{"a", "b", "c", "d"})
 	row = &Row{
 		Schema: []int{0, 1, 3},
@@ -56,7 +40,7 @@ func TestWriteCSVRow(t *testing.T) {
 	f.WriteRow(row, &rowWriteOptions{})
 	f.buffer.Flush()
 
-	if mw.String() != "1.5,2.5,,3.5\n" {
+	if b.String() != "1.5,2.5,,3.5\n" {
 		t.Fail()
 	}
 }
