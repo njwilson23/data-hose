@@ -4,13 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"testing"
 )
 
 func TestReadSingleInput(t *testing.T) {
-	buffer := make(chan string)
+	buffer := make(chan *Row)
 	errs := make(chan error)
 
 	f, err := os.Open("testdata/sequence.txt")
@@ -18,9 +17,11 @@ func TestReadSingleInput(t *testing.T) {
 		fmt.Println(err)
 		t.Error()
 	}
-	paths := []io.Reader{f}
 
-	go readInputs(paths, buffer, errs)
+	options := &rowReadOptions{}
+	inputs := []RowBasedReader{&CSVReader{bufio.NewReader(f)}}
+
+	go readInputs(inputs, buffer, errs, options)
 	count := 0
 	for _ = range buffer {
 		count++
@@ -35,21 +36,24 @@ func TestReadSingleInput(t *testing.T) {
 }
 
 func TestReadMultipleInput(t *testing.T) {
-	buffer := make(chan string)
+	buffer := make(chan *Row)
 	errs := make(chan error)
 	paths := []string{"testdata/sequence.txt", "testdata/sequence.txt"}
 
-	inputs := make([]io.Reader, len(paths))
+	inputs := make([]RowBasedReader, len(paths))
 	for i, path := range paths {
 		f, err := os.Open(path)
 		if err != nil {
 			fmt.Println(err)
 			t.Error()
 		}
-		inputs[i] = f
+
+		inputs[i] = &CSVReader{bufio.NewReader(f)}
 	}
 
-	go readInputs(inputs, buffer, errs)
+	options := &rowReadOptions{}
+
+	go readInputs(inputs, buffer, errs, options)
 	count := 0
 	for _ = range buffer {
 		count++
@@ -64,23 +68,34 @@ func TestReadMultipleInput(t *testing.T) {
 }
 
 func TestHandleLines(t *testing.T) {
-	buffer := make(chan string, 100)
+	ch := make(chan *Row, 100)
+	names := ColumnNames([]string{"A", "B", "C"})
+
 	for i := 0; i != 100; i++ {
-		buffer <- fmt.Sprintf("line %d\n", i)
+		ch <- &Row{
+			Schema: []int{0, 1, 2},
+			Values: []string{"10", "20", "30"},
+			Names:  &names,
+		}
 	}
+	close(ch)
+
+	options := &rowWriteOptions{}
 	b := bytes.Buffer{}
-	writer := bufio.NewWriter(&b)
-	err := handleLines(writer, buffer, 100)
+	writer := &CSVWriter{bufio.NewWriter(&b)}
+	err := handleLines(writer, ch, options)
+
 	if err != nil {
 		fmt.Println(err)
 		t.Error()
 	}
+
 	for i := 0; i != 100; i++ {
 		line, err := b.ReadString('\n')
 		if err != nil {
 			t.Error()
 		}
-		if line != fmt.Sprintf("line %d\n", i) {
+		if line != "10,20,30\n" {
 			t.Fail()
 		}
 	}

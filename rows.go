@@ -32,16 +32,19 @@ type RowBasedReader interface {
 
 type RowBasedWriter interface {
 	WriteRow(*Row, *rowWriteOptions) error
+	Flush() error
 }
 
 type rowReadOptions struct {
-	nSkipCols int
-	nReadCols int
+	nSkipRows int
+	nRows     int
+	filetype  string
 }
 
 type rowWriteOptions struct {
 	targetCol int
-	precision int
+	nRows     int
+	filetype  string
 }
 
 var EMPTY_LINE_ERROR = errors.New("empty line encountered")

@@ -53,7 +53,7 @@ func TestReadLibSVMRow(t *testing.T) {
 	b.WriteString("1 1:0.2 2:1.8 4:1.2\n")
 	rowReader := LibSVMReader{bufio.NewReader(b)}
 
-	options := rowReadOptions{nSkipCols: 0, nReadCols: -1}
+	options := rowReadOptions{nSkipRows: 0, nRows: -1}
 	row, err := rowReader.ReadRow(&options)
 	if err != nil {
 		fmt.Println(err)

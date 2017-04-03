@@ -92,3 +92,7 @@ func (rowReader *LibSVMReader) ReadRow(options *rowReadOptions) (*Row, error) {
 	row := Row{Schema: schema, Values: values}
 	return &row, nil
 }
+
+func (writer *LibSVMWriter) Flush() error {
+	return writer.buffer.Flush()
+}

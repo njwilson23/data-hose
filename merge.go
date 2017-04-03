@@ -1,19 +1,14 @@
 package main
 
-import (
-	"bufio"
-	"io"
-)
+func merge(inputs []RowBasedReader, output RowBasedWriter, readOptions *rowReadOptions, writeOptions *rowWriteOptions) error {
+	pending := make(chan *Row, BUFFER_SIZE)
+	errorChan := make(chan error)
 
-func merge(inputs []io.Reader, output *bufio.Writer) error {
-	pending := make(chan string, BUFFER_SIZE)
-	ret := make(chan error)
-
-	go readInputs(inputs, pending, ret)
-	err, ok := <-ret
+	go readInputs(inputs, pending, errorChan, readOptions)
+	err, ok := <-errorChan
 	if ok {
 		return err
 	}
-	handleLines(output, pending, -1)
-	return nil
+
+	return handleLines(output, pending, writeOptions)
 }

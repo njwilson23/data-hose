@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"io"
 	"strings"
 )
@@ -54,6 +55,10 @@ func (rowReader *CSVReader) ReadRow(options *rowReadOptions) (*Row, error) {
 }
 
 func (rowWriter *CSVWriter) WriteRow(row *Row, options *rowWriteOptions) error {
+	if row.Names == nil {
+		return errors.New("missing names record")
+	}
+
 	buffer := bytes.Buffer{}
 	col := 0
 	for i := 0; i != len(*row.Names); i++ {
@@ -79,22 +84,26 @@ func (rowWriter *CSVWriter) WriteRow(row *Row, options *rowWriteOptions) error {
 	return nil
 }
 
+func (writer *CSVWriter) Flush() error {
+	return writer.buffer.Flush()
+}
+
 func readCSV(reader *bufio.Reader, options *rowReadOptions) (*Section, error) {
-	for i := 0; i != options.nSkipCols; i++ {
+	for i := 0; i != options.nSkipRows; i++ {
 		reader.ReadString('\n')
 	}
 
 	var row *Row
 	var err error
 	var capacity int
-	if options.nReadCols < 0 {
+	if options.nRows < 0 {
 		capacity = 10
 	} else {
-		capacity = options.nReadCols
+		capacity = options.nRows
 	}
 	section := Section(make([]Row, 0, capacity))
 	rowReader := CSVReader{reader}
-	for i := 0; i != options.nReadCols; i++ {
+	for i := 0; i != options.nRows; i++ {
 		row, err = rowReader.ReadRow(options)
 		if err == io.EOF {
 			break

@@ -1,4 +1,4 @@
-SOURCE = hose.go csv2lsvm.go
+SOURCE = hose.go rows.go csv.go libsvm.go merge.go slice.go
 
 all: $(SOURCE) dist
 	go build -v -o dist/hose

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io"
 	"testing"
 )
 
@@ -18,12 +17,18 @@ func TestMerge(t *testing.T) {
 
 	output := bytes.Buffer{}
 	outputBuffer := bufio.NewWriter(&output)
-	err := merge([]io.Reader{&inputA, &inputB}, outputBuffer)
+	err := merge([]RowBasedReader{
+		&TextReader{bufio.NewReader(&inputA)},
+		&TextReader{bufio.NewReader(&inputB)}},
+		&TextWriter{outputBuffer},
+		&rowReadOptions{}, &rowWriteOptions{})
 	if err != nil {
 		fmt.Println(err)
 		t.Error()
 	}
+
 	if output.String() != "line 1, A\nline 2, A\nline 1, B\nline 2, B\n" {
+		fmt.Println(output.String())
 		t.Fail()
 	}
 }

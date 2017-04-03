@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bufio"
-	"io"
 	"os"
 
 	"github.com/urfave/cli"
 )
 
-func slice(input io.Reader, from, to int, output *bufio.Writer) error {
+func slice(input RowBasedReader, from, to int, output RowBasedWriter, readOptions *rowReadOptions, writeOptions *rowWriteOptions) error {
 	if to != -1 && (to <= from) {
 		os.Stderr.WriteString("--from argument must be greater than --to argument\n")
 		return USAGE_ERROR
@@ -18,12 +16,12 @@ func slice(input io.Reader, from, to int, output *bufio.Writer) error {
 		return USAGE_ERROR
 	}
 
-	pending := make(chan string, BUFFER_SIZE)
-	ret := make(chan error)
+	pending := make(chan *Row, BUFFER_SIZE)
+	errorChan := make(chan error)
 
-	inputs := []io.Reader{input}
-	go readInputs(inputs, pending, ret)
-	err, ok := <-ret
+	inputs := []RowBasedReader{input}
+	go readInputs(inputs, pending, errorChan, readOptions)
+	err, ok := <-errorChan
 	if ok {
 		return err
 	}
@@ -36,6 +34,12 @@ func slice(input io.Reader, from, to int, output *bufio.Writer) error {
 		}
 		i++
 	}
-	handleLines(output, pending, to-from)
-	return nil
+
+	// Ensure that the nRows member of the write options is consistent with the
+	// number of lines wanted
+	writeOptionsLocal := &rowWriteOptions{}
+	*writeOptionsLocal = *writeOptions
+	writeOptionsLocal.nRows = to - from
+
+	return handleLines(output, pending, writeOptionsLocal)
 }

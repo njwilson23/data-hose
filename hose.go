@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/urfave/cli"
 )
@@ -12,46 +13,70 @@ const BUFFER_SIZE = 10000
 
 var USAGE_ERROR = cli.NewExitError("invalid usage", 1)
 var MISSING_FILE_ERROR = cli.NewExitError("input file not found", 1)
+var NO_READER_ERROR = cli.NewExitError("input file type not known", 1)
+var NO_WRITER_ERROR = cli.NewExitError("output file type not known", 1)
+
+func getReader(filetype string, buffer *bufio.Reader) (RowBasedReader, error) {
+	switch filetype {
+	case "csv":
+		return &CSVReader{buffer}, nil
+	case "svm", "libsvm":
+		return &LibSVMReader{buffer}, nil
+	default:
+		return &CSVReader{&bufio.Reader{}}, NO_READER_ERROR
+	}
+}
+
+func getWriter(filetype string, buffer *bufio.Writer) (RowBasedWriter, error) {
+	switch filetype {
+	case "csv":
+		return &CSVWriter{buffer}, nil
+	case "svm", "libsvm":
+		return &LibSVMWriter{buffer}, nil
+	default:
+		return &CSVWriter{&bufio.Writer{}}, NO_WRITER_ERROR
+	}
+}
 
 // readInputs opens a list of file paths sequentially, sending their contents
-// line-by-line into a string channel
-func readInputs(files []io.Reader, buffer chan string, errorChan chan error) {
+// into a Row channel
+func readInputs(files []RowBasedReader, buffer chan *Row, errorChan chan error, options *rowReadOptions) {
 	defer close(buffer)
 	defer close(errorChan)
-	for _, file := range files {
-		reader := bufio.NewReader(file)
+	for _, reader := range files {
+
 		fileDone := false
 
 		for !fileDone {
-			line, err := reader.ReadString('\n')
+			row, err := reader.ReadRow(options)
 			if err == io.EOF {
 				fileDone = true
 			} else if err != nil {
 				errorChan <- cli.NewExitError(err, 2)
 				return
 			} else {
-				buffer <- line
+				buffer <- row
 			}
 		}
 	}
 	return
 }
 
-// handleLines writes strings up to nLines from a channel to a buffered target
-func handleLines(target *bufio.Writer, buffer chan string, nLines int) error {
-	defer target.Flush()
+// handleLines writes up to nRows from a Row channel to a buffered target
+func handleLines(target RowBasedWriter, ch chan *Row, options *rowWriteOptions) error {
 	i := 0
-	for line := range buffer {
-		_, err := target.WriteString(line)
+	for row := range ch {
+		err := target.WriteRow(row, options)
 		if err != nil {
-			return cli.NewExitError("failed to write line to file", 3)
+			return cli.NewExitError(err, 1)
 		}
 
 		i++
-		if i == nLines {
+		if i == options.nRows {
 			break
 		}
 	}
+	target.Flush()
 	return nil
 }
 
@@ -81,13 +106,24 @@ func main() {
 	app.Commands = []cli.Command{
 
 		{
-			Name:  "merge",
-			Usage: "concatenate files",
+			Name:    "merge",
+			Aliases: []string{"cat"},
+			Usage:   "concatenate files",
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "output, o",
 					Value: "",
 					Usage: "`PATH` to direct output to (if not given, writes to stdout)",
+				},
+				cli.StringFlag{
+					Name:  "f",
+					Value: "",
+					Usage: "input `FORMAT` (if not given, guessed from extension)",
+				},
+				cli.StringFlag{
+					Name:  "t",
+					Value: "",
+					Usage: "output `PATH` (if not given, guessed from extension)",
 				},
 			},
 
@@ -97,12 +133,7 @@ func main() {
 					return USAGE_ERROR
 				}
 
-				fout, err := createOutput(c.String("output"))
-				if err != nil {
-					return err
-				}
-
-				files := make([]io.Reader, len(c.Args()))
+				readers := make([]RowBasedReader, len(c.Args()))
 				for i, path := range c.Args() {
 					if _, err := os.Stat(path); os.IsNotExist(err) {
 						return MISSING_FILE_ERROR
@@ -113,10 +144,35 @@ func main() {
 						return cli.NewExitError("failed to open file", 2)
 					}
 
-					files[i] = f
+					extension := filepath.Ext(path)
+					if len(extension) == 0 {
+						return cli.NewExitError("filetype could not be inferred", 1)
+					}
+
+					reader, err := getReader(extension[1:], bufio.NewReader(f))
+					if err != nil {
+						return err
+					}
+
+					readers[i] = reader
 				}
 
-				return merge(files, fout)
+				fout, err := createOutput(c.String("output"))
+				if err != nil {
+					return err
+				}
+
+				extension := filepath.Ext(c.String("output"))
+				if len(extension) == 0 {
+					return cli.NewExitError("filetype could not be inferred for output", 1)
+				}
+
+				writer, err := getWriter(extension[1:], fout)
+				if err != nil {
+					return err
+				}
+
+				return merge(readers, writer, &rowReadOptions{}, &rowWriteOptions{})
 			},
 		},
 
@@ -130,14 +186,24 @@ func main() {
 					Usage: "`PATH` to direct output to (if not given, writes to stdout)",
 				},
 				cli.IntFlag{
-					Name:  "from, f",
+					Name:  "start, s",
 					Value: 0,
 					Usage: "`ROW` to slice from",
 				},
 				cli.IntFlag{
-					Name:  "to, t",
+					Name:  "end, e",
 					Value: -1,
 					Usage: "`ROW` to slice to",
+				},
+				cli.StringFlag{
+					Name:  "f",
+					Value: "",
+					Usage: "input `FORMAT` (if not given, guessed from extension)",
+				},
+				cli.StringFlag{
+					Name:  "t",
+					Value: "",
+					Usage: "output `PATH` (if not given, guessed from extension)",
 				},
 			},
 
@@ -147,7 +213,7 @@ func main() {
 					return USAGE_ERROR
 				}
 
-				fout, err := createOutput(c.String("output"))
+				_, err := createOutput(c.String("output"))
 				if err != nil {
 					return err
 				}
@@ -156,12 +222,13 @@ func main() {
 					return MISSING_FILE_ERROR
 				}
 
-				f, err := os.Open(c.Args().First())
+				_, err = os.Open(c.Args().First())
 				if err != nil {
 					return cli.NewExitError(err, 1)
 				}
 
-				return slice(f, c.Int("from"), c.Int("to"), fout)
+				//return slice(f, c.Int("from"), c.Int("to"), fout)
+				return nil
 			},
 		},
 
