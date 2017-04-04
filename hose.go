@@ -10,8 +10,6 @@ import (
 
 const BUFFER_SIZE = 10000
 
-var USAGE_ERROR = cli.NewExitError("invalid usage", 1)
-var MISSING_FILE_ERROR = cli.NewExitError("input file not found", 1)
 var NO_READER_ERROR = cli.NewExitError("input file type not known", 1)
 var NO_WRITER_ERROR = cli.NewExitError("output file type not known", 1)
 
@@ -46,11 +44,13 @@ func getWriter(filetype string, buffer *bufio.Writer) (RowBasedWriter, error) {
 func readInputs(files []RowBasedReader, buffer chan *Row, errorChan chan error, options *ReadOptions) {
 	defer close(buffer)
 	defer close(errorChan)
+
+	rowCount := 0
 	for _, reader := range files {
 
 		fileDone := false
 
-		for !fileDone {
+		for !fileDone && (rowCount != options.nRows) {
 			row, err := reader.ReadRow(options)
 			if err == io.EOF {
 				fileDone = true
@@ -59,6 +59,7 @@ func readInputs(files []RowBasedReader, buffer chan *Row, errorChan chan error, 
 				return
 			} else {
 				buffer <- row
+				rowCount++
 			}
 		}
 	}
@@ -97,4 +98,17 @@ func createOutput(path string) (*bufio.Writer, error) {
 	}
 	buffer := bufio.NewWriter(writer)
 	return buffer, nil
+}
+
+func merge(inputs []RowBasedReader, output RowBasedWriter, readOptions *ReadOptions, writeOptions *WriteOptions) error {
+	pending := make(chan *Row, BUFFER_SIZE)
+	errorChan := make(chan error)
+
+	go readInputs(inputs, pending, errorChan, readOptions)
+	err, ok := <-errorChan
+	if ok {
+		return err
+	}
+
+	return handleLines(output, pending, writeOptions)
 }

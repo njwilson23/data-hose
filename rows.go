@@ -38,13 +38,12 @@ type RowBasedWriter interface {
 type ReadOptions struct {
 	nSkipRows int
 	nRows     int
-	filetype  string
 }
 
 type WriteOptions struct {
 	targetCol int
 	nRows     int
-	filetype  string
+	append    bool
 }
 
 var EMPTY_LINE_ERROR = errors.New("empty line encountered")
