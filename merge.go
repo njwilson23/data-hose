@@ -1,6 +1,6 @@
 package main
 
-func merge(inputs []RowBasedReader, output RowBasedWriter, readOptions *rowReadOptions, writeOptions *rowWriteOptions) error {
+func merge(inputs []RowBasedReader, output RowBasedWriter, readOptions *ReadOptions, writeOptions *WriteOptions) error {
 	pending := make(chan *Row, BUFFER_SIZE)
 	errorChan := make(chan error)
 

@@ -16,7 +16,7 @@ type LibSVMWriter struct {
 }
 
 // WriteString outputs a libSVM representation of a Row
-func (rowWriter *LibSVMWriter) WriteRow(row *Row, options *rowWriteOptions) error {
+func (rowWriter *LibSVMWriter) WriteRow(row *Row, options *WriteOptions) error {
 	var buffer bytes.Buffer
 
 	targetEmpty := true
@@ -45,7 +45,7 @@ func (rowWriter *LibSVMWriter) WriteRow(row *Row, options *rowWriteOptions) erro
 	return nil
 }
 
-func (rowReader *LibSVMReader) ReadRow(options *rowReadOptions) (*Row, error) {
+func (rowReader *LibSVMReader) ReadRow(options *ReadOptions) (*Row, error) {
 	line, err := rowReader.buffer.ReadString('\n')
 	buffer := bytes.Buffer{}
 

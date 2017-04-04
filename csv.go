@@ -16,7 +16,7 @@ type CSVWriter struct {
 	buffer *bufio.Writer
 }
 
-func (rowReader *CSVReader) ReadRow(options *rowReadOptions) (*Row, error) {
+func (rowReader *CSVReader) ReadRow(options *ReadOptions) (*Row, error) {
 	buffer := bytes.Buffer{}
 
 	line, err := rowReader.buffer.ReadString('\n')
@@ -54,7 +54,7 @@ func (rowReader *CSVReader) ReadRow(options *rowReadOptions) (*Row, error) {
 	return &Row{Schema: schema, Values: values}, nil
 }
 
-func (rowWriter *CSVWriter) WriteRow(row *Row, options *rowWriteOptions) error {
+func (rowWriter *CSVWriter) WriteRow(row *Row, options *WriteOptions) error {
 	if row.Names == nil {
 		return errors.New("missing names record")
 	}
@@ -88,7 +88,7 @@ func (writer *CSVWriter) Flush() error {
 	return writer.buffer.Flush()
 }
 
-func readCSV(reader *bufio.Reader, options *rowReadOptions) (*Section, error) {
+func readCSV(reader *bufio.Reader, options *ReadOptions) (*Section, error) {
 	for i := 0; i != options.nSkipRows; i++ {
 		reader.ReadString('\n')
 	}

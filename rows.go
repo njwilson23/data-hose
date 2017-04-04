@@ -27,21 +27,21 @@ type Section []Row
 
 // ReadableFormat is an interface for possible input formats
 type RowBasedReader interface {
-	ReadRow(*rowReadOptions) (*Row, error)
+	ReadRow(*ReadOptions) (*Row, error)
 }
 
 type RowBasedWriter interface {
-	WriteRow(*Row, *rowWriteOptions) error
+	WriteRow(*Row, *WriteOptions) error
 	Flush() error
 }
 
-type rowReadOptions struct {
+type ReadOptions struct {
 	nSkipRows int
 	nRows     int
 	filetype  string
 }
 
-type rowWriteOptions struct {
+type WriteOptions struct {
 	targetCol int
 	nRows     int
 	filetype  string

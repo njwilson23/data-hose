@@ -10,7 +10,7 @@ type TextWriter struct {
 	buffer *bufio.Writer
 }
 
-func (reader *TextReader) ReadRow(options *rowReadOptions) (*Row, error) {
+func (reader *TextReader) ReadRow(options *ReadOptions) (*Row, error) {
 	s, err := reader.buffer.ReadString('\n')
 	if err != nil {
 		return &Row{}, err
@@ -18,7 +18,7 @@ func (reader *TextReader) ReadRow(options *rowReadOptions) (*Row, error) {
 	return &Row{Schema: []int{0}, Values: []string{s}}, nil
 }
 
-func (writer *TextWriter) WriteRow(row *Row, options *rowWriteOptions) error {
+func (writer *TextWriter) WriteRow(row *Row, options *WriteOptions) error {
 	for _, s := range row.Values {
 		_, err := writer.buffer.WriteString(s)
 		if err != nil {

@@ -18,7 +18,7 @@ func TestReadSingleInput(t *testing.T) {
 		t.Error()
 	}
 
-	options := &rowReadOptions{}
+	options := &ReadOptions{}
 	inputs := []RowBasedReader{&CSVReader{bufio.NewReader(f)}}
 
 	go readInputs(inputs, buffer, errs, options)
@@ -51,7 +51,7 @@ func TestReadMultipleInput(t *testing.T) {
 		inputs[i] = &CSVReader{bufio.NewReader(f)}
 	}
 
-	options := &rowReadOptions{}
+	options := &ReadOptions{}
 
 	go readInputs(inputs, buffer, errs, options)
 	count := 0
@@ -80,7 +80,7 @@ func TestHandleLines(t *testing.T) {
 	}
 	close(ch)
 
-	options := &rowWriteOptions{}
+	options := &WriteOptions{}
 	b := bytes.Buffer{}
 	writer := &CSVWriter{bufio.NewWriter(&b)}
 	err := handleLines(writer, ch, options)
@@ -98,5 +98,68 @@ func TestHandleLines(t *testing.T) {
 		if line != "10,20,30\n" {
 			t.Fail()
 		}
+	}
+}
+
+func TestGetReader(t *testing.T) {
+	reader := &bufio.Reader{}
+	r, err := getReader("csv", reader)
+	if err != nil {
+		t.Error()
+	}
+	if _, ok := r.(*CSVReader); !ok {
+		t.Fail()
+	}
+
+	r, err = getReader("svm", reader)
+	if err != nil {
+		t.Error()
+	}
+	if _, ok := r.(*LibSVMReader); !ok {
+		t.Fail()
+	}
+
+	r, err = getReader("txt", reader)
+	if err != nil {
+		t.Error()
+	}
+	if _, ok := r.(*TextReader); !ok {
+		t.Fail()
+	}
+
+	r, err = getReader("unknown", reader)
+	if err == nil {
+		t.Fail()
+	}
+}
+func TestGetWriter(t *testing.T) {
+	reader := &bufio.Writer{}
+	r, err := getWriter("csv", reader)
+	if err != nil {
+		t.Error()
+	}
+	if _, ok := r.(*CSVWriter); !ok {
+		t.Fail()
+	}
+
+	r, err = getWriter("svm", reader)
+	if err != nil {
+		t.Error()
+	}
+	if _, ok := r.(*LibSVMWriter); !ok {
+		t.Fail()
+	}
+
+	r, err = getWriter("txt", reader)
+	if err != nil {
+		t.Error()
+	}
+	if _, ok := r.(*TextWriter); !ok {
+		t.Fail()
+	}
+
+	r, err = getWriter("unknown", reader)
+	if err == nil {
+		t.Fail()
 	}
 }

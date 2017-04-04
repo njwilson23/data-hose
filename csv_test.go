@@ -22,7 +22,7 @@ func TestWriteCSVRow(t *testing.T) {
 		Values: []string{"1.5", "2.5", "3.5"},
 		Names:  &names}
 
-	f.WriteRow(row, &rowWriteOptions{})
+	f.WriteRow(row, &WriteOptions{})
 	f.buffer.Flush()
 
 	if b.String() != "1.5,2.5,3.5\n" {
@@ -37,7 +37,7 @@ func TestWriteCSVRow(t *testing.T) {
 		Values: []string{"1.5", "2.5", "3.5"},
 		Names:  &names}
 
-	f.WriteRow(row, &rowWriteOptions{})
+	f.WriteRow(row, &WriteOptions{})
 	f.buffer.Flush()
 
 	if b.String() != "1.5,2.5,,3.5\n" {
@@ -76,7 +76,7 @@ func TestReadDenseCSV(t *testing.T) {
 	}
 	fileBuffer := bufio.NewReader(f)
 
-	section, err := readCSV(fileBuffer, &rowReadOptions{nSkipRows: 1, nRows: -1})
+	section, err := readCSV(fileBuffer, &ReadOptions{nSkipRows: 1, nRows: -1})
 	if err != nil {
 		fmt.Println(err)
 		t.Error()
@@ -118,7 +118,7 @@ func TestReadSparseCSVWithNA(t *testing.T) {
 	}
 	fileBuffer := bufio.NewReader(f)
 
-	section, err := readCSV(fileBuffer, &rowReadOptions{nSkipRows: 1, nRows: -1})
+	section, err := readCSV(fileBuffer, &ReadOptions{nSkipRows: 1, nRows: -1})
 	if err != nil {
 		t.Error()
 	}
@@ -173,7 +173,7 @@ func TestReadSparseCSVWithBlank(t *testing.T) {
 	}
 	fileBuffer := bufio.NewReader(f)
 
-	section, err := readCSV(fileBuffer, &rowReadOptions{nSkipRows: 1, nRows: -1})
+	section, err := readCSV(fileBuffer, &ReadOptions{nSkipRows: 1, nRows: -1})
 	if err != nil {
 		t.Error()
 	}
@@ -228,7 +228,7 @@ func TestPartialCSV(t *testing.T) {
 	}
 	fileBuffer := bufio.NewReader(f)
 
-	section, err := readCSV(fileBuffer, &rowReadOptions{nSkipRows: 1, nRows: 3})
+	section, err := readCSV(fileBuffer, &ReadOptions{nSkipRows: 1, nRows: 3})
 	if err != nil {
 		fmt.Println(err)
 		t.Error()

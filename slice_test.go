@@ -14,7 +14,7 @@ func TestSlice(t *testing.T) {
 	output := bytes.Buffer{}
 	outputBuffer := &TextWriter{bufio.NewWriter(&output)}
 
-	err := slice(input, 2, 5, outputBuffer, &rowReadOptions{}, &rowWriteOptions{})
+	err := slice(input, 2, 5, outputBuffer, &ReadOptions{}, &WriteOptions{})
 	if err != nil {
 		fmt.Println(err)
 		t.Error()
@@ -30,7 +30,7 @@ func TestSliceInvertedToFromError(t *testing.T) {
 	output := bytes.Buffer{}
 	outputBuffer := &TextWriter{bufio.NewWriter(&output)}
 
-	err := slice(input, 5, 2, outputBuffer, &rowReadOptions{}, &rowWriteOptions{})
+	err := slice(input, 5, 2, outputBuffer, &ReadOptions{}, &WriteOptions{})
 	if err == nil {
 		t.Fail()
 	}
@@ -42,7 +42,7 @@ func TestSliceNegativeFromError(t *testing.T) {
 	output := bytes.Buffer{}
 	outputBuffer := &TextWriter{bufio.NewWriter(&output)}
 
-	err := slice(input, -1, 5, outputBuffer, &rowReadOptions{}, &rowWriteOptions{})
+	err := slice(input, -1, 5, outputBuffer, &ReadOptions{}, &WriteOptions{})
 	if err == nil {
 		t.Fail()
 	}
@@ -54,7 +54,7 @@ func TestSliceOutOfRangeToError(t *testing.T) {
 	output := bytes.Buffer{}
 	outputBuffer := &TextWriter{bufio.NewWriter(&output)}
 
-	err := slice(input, 11, 15, outputBuffer, &rowReadOptions{}, &rowWriteOptions{})
+	err := slice(input, 11, 15, outputBuffer, &ReadOptions{}, &WriteOptions{})
 	if err == nil {
 		t.Fail()
 	}

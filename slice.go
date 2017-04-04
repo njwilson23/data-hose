@@ -6,7 +6,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func slice(input RowBasedReader, from, to int, output RowBasedWriter, readOptions *rowReadOptions, writeOptions *rowWriteOptions) error {
+func slice(input RowBasedReader, from, to int, output RowBasedWriter, readOptions *ReadOptions, writeOptions *WriteOptions) error {
 	if to != -1 && (to <= from) {
 		os.Stderr.WriteString("--from argument must be greater than --to argument\n")
 		return USAGE_ERROR
@@ -37,7 +37,7 @@ func slice(input RowBasedReader, from, to int, output RowBasedWriter, readOption
 
 	// Ensure that the nRows member of the write options is consistent with the
 	// number of lines wanted
-	writeOptionsLocal := &rowWriteOptions{}
+	writeOptionsLocal := &WriteOptions{}
 	*writeOptionsLocal = *writeOptions
 	writeOptionsLocal.nRows = to - from
 

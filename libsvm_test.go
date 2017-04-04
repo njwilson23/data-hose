@@ -16,7 +16,7 @@ func TestWriteLibSVMRow(t *testing.T) {
 	f, b := NewTestLibSVMWriter()
 
 	row := &Row{Schema: []int{-1, 0, 1, 2}, Values: []string{"10.00", "1.5", "2.5", "3.5"}}
-	f.WriteRow(row, &rowWriteOptions{targetCol: -1})
+	f.WriteRow(row, &WriteOptions{targetCol: -1})
 	f.buffer.Flush()
 
 	if b.String() != "10.00 0:1.5 1:2.5 2:3.5\n" {
@@ -27,7 +27,7 @@ func TestWriteLibSVMRow(t *testing.T) {
 	f, b = NewTestLibSVMWriter()
 
 	row = &Row{Schema: []int{1, 2, 3}, Values: []string{"2.5", "3.5", "-10"}}
-	f.WriteRow(row, &rowWriteOptions{targetCol: 3})
+	f.WriteRow(row, &WriteOptions{targetCol: 3})
 	f.buffer.Flush()
 
 	if b.String() != "-10 1:2.5 2:3.5\n" {
@@ -38,7 +38,7 @@ func TestWriteLibSVMRow(t *testing.T) {
 	f, b = NewTestLibSVMWriter()
 
 	row = &Row{Schema: []int{0, 2, 3}, Values: []string{"2.5", "3.5", "-10"}}
-	f.WriteRow(row, &rowWriteOptions{targetCol: 3})
+	f.WriteRow(row, &WriteOptions{targetCol: 3})
 	f.buffer.Flush()
 
 	if b.String() != "-10 0:2.5 2:3.5\n" {
@@ -53,7 +53,7 @@ func TestReadLibSVMRow(t *testing.T) {
 	b.WriteString("1 1:0.2 2:1.8 4:1.2\n")
 	rowReader := LibSVMReader{bufio.NewReader(b)}
 
-	options := rowReadOptions{nSkipRows: 0, nRows: -1}
+	options := ReadOptions{nSkipRows: 0, nRows: -1}
 	row, err := rowReader.ReadRow(&options)
 	if err != nil {
 		fmt.Println(err)

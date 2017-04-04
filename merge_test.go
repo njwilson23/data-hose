@@ -21,7 +21,7 @@ func TestMerge(t *testing.T) {
 		&TextReader{bufio.NewReader(&inputA)},
 		&TextReader{bufio.NewReader(&inputB)}},
 		&TextWriter{outputBuffer},
-		&rowReadOptions{}, &rowWriteOptions{})
+		&ReadOptions{}, &WriteOptions{})
 	if err != nil {
 		fmt.Println(err)
 		t.Error()
