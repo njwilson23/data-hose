@@ -15,7 +15,7 @@ func (reader *TextReader) ReadRow(options *ReadOptions) (*Row, error) {
 	if err != nil {
 		return &Row{}, err
 	}
-	return &Row{Schema: []int{0}, Values: []string{s}}, nil
+	return &Row{Schema: []int{0}, Values: []string{s[:len(s)-1]}}, nil
 }
 
 func (writer *TextWriter) WriteRow(row *Row, options *WriteOptions) error {
@@ -25,10 +25,10 @@ func (writer *TextWriter) WriteRow(row *Row, options *WriteOptions) error {
 			return err
 		}
 	}
-	//_, err := writer.buffer.WriteRune('\n')
-	//if err != nil {
-	//	return err
-	//}
+	_, err := writer.buffer.WriteRune('\n')
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

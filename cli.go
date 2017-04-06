@@ -49,7 +49,7 @@ func main() {
 	}
 
 	app.Action = func(c *cli.Context) error {
-		if len(c.Args()) < 1 {
+		if c.NArg() < 1 {
 			cli.ShowCommandHelp(c, "")
 			return USAGE_ERROR
 		}
@@ -108,11 +108,10 @@ func main() {
 			nSkipRows: c.Int("start"),
 			nRows:     c.Int("end") - c.Int("start"),
 		}
-		fmt.Println(readOpt)
 
 		writeOpt := &WriteOptions{}
 
-		return merge(readers, writer, readOpt, writeOpt)
+		return Merge(readers, writer, readOpt, writeOpt)
 	}
 
 	app.Run(os.Args)

@@ -21,7 +21,7 @@ func TestReadSingleInput(t *testing.T) {
 	options := &ReadOptions{nRows: -1}
 	inputs := []RowBasedReader{&CSVReader{bufio.NewReader(f)}}
 
-	go readInputs(inputs, buffer, errs, options)
+	go ReadInputs(inputs, buffer, errs, options)
 	count := 0
 	for _ = range buffer {
 		count++
@@ -53,7 +53,7 @@ func TestReadMultipleInput(t *testing.T) {
 
 	options := &ReadOptions{nRows: -1}
 
-	go readInputs(inputs, buffer, errs, options)
+	go ReadInputs(inputs, buffer, errs, options)
 	count := 0
 	for _ = range buffer {
 		count++
@@ -83,7 +83,7 @@ func TestHandleLines(t *testing.T) {
 	options := &WriteOptions{}
 	b := bytes.Buffer{}
 	writer := &CSVWriter{bufio.NewWriter(&b)}
-	err := handleLines(writer, ch, options)
+	err := WriteRows(writer, ch, options)
 
 	if err != nil {
 		fmt.Println(err)
@@ -174,7 +174,7 @@ func TestMerge(t *testing.T) {
 
 	output := bytes.Buffer{}
 	outputBuffer := bufio.NewWriter(&output)
-	err := merge([]RowBasedReader{
+	err := Merge([]RowBasedReader{
 		&TextReader{bufio.NewReader(&inputA)},
 		&TextReader{bufio.NewReader(&inputB)}},
 		&TextWriter{outputBuffer},

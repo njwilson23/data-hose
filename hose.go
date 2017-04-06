@@ -39,9 +39,9 @@ func getWriter(filetype string, buffer *bufio.Writer) (RowBasedWriter, error) {
 	}
 }
 
-// readInputs opens a list of file paths sequentially, sending their contents
+// ReadInputs opens a list of file paths sequentially, sending their contents
 // into a Row channel
-func readInputs(files []RowBasedReader, buffer chan *Row, errorChan chan error, options *ReadOptions) {
+func ReadInputs(files []RowBasedReader, buffer chan *Row, errorChan chan error, options *ReadOptions) {
 	defer close(buffer)
 	defer close(errorChan)
 
@@ -54,6 +54,7 @@ func readInputs(files []RowBasedReader, buffer chan *Row, errorChan chan error, 
 			row, err := reader.ReadRow(options)
 			if err == io.EOF {
 				fileDone = true
+			} else if err == EMPTY_LINE_ERROR {
 			} else if err != nil {
 				errorChan <- cli.NewExitError(err, 2)
 				return
@@ -66,8 +67,8 @@ func readInputs(files []RowBasedReader, buffer chan *Row, errorChan chan error, 
 	return
 }
 
-// handleLines writes up to nRows from a Row channel to a buffered target
-func handleLines(target RowBasedWriter, ch chan *Row, options *WriteOptions) error {
+// WriteRows writes up to nRows from a Row channel to a buffered target
+func WriteRows(target RowBasedWriter, ch chan *Row, options *WriteOptions) error {
 	i := 0
 	for row := range ch {
 		err := target.WriteRow(row, options)
@@ -100,15 +101,16 @@ func createOutput(path string) (*bufio.Writer, error) {
 	return buffer, nil
 }
 
-func merge(inputs []RowBasedReader, output RowBasedWriter, readOptions *ReadOptions, writeOptions *WriteOptions) error {
+// Merge combines the rows from multiple sources and writes them to a single output
+func Merge(inputs []RowBasedReader, output RowBasedWriter, readOptions *ReadOptions, writeOptions *WriteOptions) error {
 	pending := make(chan *Row, BUFFER_SIZE)
 	errorChan := make(chan error)
 
-	go readInputs(inputs, pending, errorChan, readOptions)
+	go ReadInputs(inputs, pending, errorChan, readOptions)
 	err, ok := <-errorChan
 	if ok {
 		return err
 	}
 
-	return handleLines(output, pending, writeOptions)
+	return WriteRows(output, pending, writeOptions)
 }
