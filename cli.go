@@ -10,8 +10,11 @@ import (
 	"github.com/urfave/cli"
 )
 
-var USAGE_ERROR = cli.NewExitError("invalid usage", 1)
-var MISSING_FILE_ERROR = cli.NewExitError("input file not found", 1)
+// UsageError is the error returned when the CLI parameters make no sense
+var UsageError = cli.NewExitError("invalid usage", 1)
+
+// MissingFileError is the error returned when a file was not found at the specified location
+var MissingFileError = cli.NewExitError("input file not found", 1)
 
 func main() {
 	app := cli.NewApp()
@@ -51,7 +54,7 @@ func main() {
 	app.Action = func(c *cli.Context) error {
 		if c.NArg() < 1 {
 			cli.ShowCommandHelp(c, "")
-			return USAGE_ERROR
+			return UsageError
 		}
 
 		var filetype string
@@ -59,7 +62,7 @@ func main() {
 		for i, path := range c.Args() {
 			if _, err := os.Stat(path); os.IsNotExist(err) {
 				fmt.Println(path)
-				return MISSING_FILE_ERROR
+				return MissingFileError
 			}
 
 			f, err := os.Open(path)

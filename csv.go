@@ -24,7 +24,7 @@ func (rowReader *CSVReader) ReadRow(options *ReadOptions) (*Row, error) {
 		return &Row{}, err
 	}
 	if len(line) == 1 {
-		return &Row{}, EMPTY_LINE_ERROR
+		return &Row{}, EmptyLineError
 	}
 
 	var s string
@@ -52,6 +52,18 @@ func (rowReader *CSVReader) ReadRow(options *ReadOptions) (*Row, error) {
 		values = append(values, s)
 	}
 	return &Row{Schema: schema, Values: values}, nil
+}
+
+// Init writes the columns names as header
+func (rowWriter *CSVWriter) Init(names *ColumnNames, schema []int) (err error) {
+	for idx, i := range schema {
+		rowWriter.buffer.WriteString((*names)[i])
+		if idx < len(schema)-1 {
+			rowWriter.buffer.WriteRune(',')
+		}
+	}
+	rowWriter.buffer.WriteRune('\n')
+	return
 }
 
 func (rowWriter *CSVWriter) WriteRow(row *Row, options *WriteOptions) error {
@@ -107,7 +119,7 @@ func readCSV(reader *bufio.Reader, options *ReadOptions) (*Section, error) {
 		row, err = rowReader.ReadRow(options)
 		if err == io.EOF {
 			break
-		} else if err == EMPTY_LINE_ERROR {
+		} else if err == EmptyLineError {
 			// Skip
 		} else if err != nil {
 			return &section, err

@@ -8,21 +8,23 @@ import (
 	"github.com/urfave/cli"
 )
 
-const BUFFER_SIZE = 10000
+const BufferSize = 10000
 
-var NO_READER_ERROR = cli.NewExitError("input file type not known", 1)
-var NO_WRITER_ERROR = cli.NewExitError("output file type not known", 1)
+var NoReaderError = cli.NewExitError("input file type not known", 1)
+var NoWriterError = cli.NewExitError("output file type not known", 1)
 
 func getReader(filetype string, buffer *bufio.Reader) (RowBasedReader, error) {
 	switch filetype {
 	case "csv":
 		return &CSVReader{buffer}, nil
+	case "json":
+		return &JSONReader{buffer}, nil
 	case "svm", "libsvm":
 		return &LibSVMReader{buffer}, nil
 	case "txt":
 		return &TextReader{buffer}, nil
 	default:
-		return &TextReader{&bufio.Reader{}}, NO_READER_ERROR
+		return &TextReader{&bufio.Reader{}}, NoReaderError
 	}
 }
 
@@ -30,12 +32,14 @@ func getWriter(filetype string, buffer *bufio.Writer) (RowBasedWriter, error) {
 	switch filetype {
 	case "csv":
 		return &CSVWriter{buffer}, nil
+	case "json":
+		return &JSONWriter{buffer, make([][]byte, 32)}, nil
 	case "svm", "libsvm":
 		return &LibSVMWriter{buffer}, nil
 	case "txt":
 		return &TextWriter{buffer}, nil
 	default:
-		return &TextWriter{&bufio.Writer{}}, NO_WRITER_ERROR
+		return &TextWriter{&bufio.Writer{}}, NoWriterError
 	}
 }
 
@@ -54,14 +58,13 @@ func ReadInputs(files []RowBasedReader, buffer chan *Row, errorChan chan error, 
 			row, err := reader.ReadRow(options)
 			if err == io.EOF {
 				fileDone = true
-			} else if err == EMPTY_LINE_ERROR {
+			} else if err == EmptyLineError {
 			} else if err != nil {
 				errorChan <- cli.NewExitError(err, 2)
 				return
-			} else {
-				buffer <- row
-				rowCount++
 			}
+			buffer <- row
+			rowCount++
 		}
 	}
 	return
@@ -70,8 +73,22 @@ func ReadInputs(files []RowBasedReader, buffer chan *Row, errorChan chan error, 
 // WriteRows writes up to nRows from a Row channel to a buffered target
 func WriteRows(target RowBasedWriter, ch chan *Row, options *WriteOptions) error {
 	i := 0
-	for row := range ch {
-		err := target.WriteRow(row, options)
+	var row *Row
+	var err error
+	if options.header {
+		row = <-ch
+		err = target.Init(row.Names, row.Schema)
+		if err != nil {
+			return cli.NewExitError(err, 1)
+		}
+		err = target.WriteRow(row, options)
+		if err != nil {
+			return cli.NewExitError(err, 1)
+		}
+		i++
+	}
+	for row = range ch {
+		err = target.WriteRow(row, options)
 		if err != nil {
 			return cli.NewExitError(err, 1)
 		}
@@ -103,7 +120,7 @@ func createOutput(path string) (*bufio.Writer, error) {
 
 // Merge combines the rows from multiple sources and writes them to a single output
 func Merge(inputs []RowBasedReader, output RowBasedWriter, readOptions *ReadOptions, writeOptions *WriteOptions) error {
-	pending := make(chan *Row, BUFFER_SIZE)
+	pending := make(chan *Row, BufferSize)
 	errorChan := make(chan error)
 
 	go ReadInputs(inputs, pending, errorChan, readOptions)

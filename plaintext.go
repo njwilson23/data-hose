@@ -18,6 +18,10 @@ func (reader *TextReader) ReadRow(options *ReadOptions) (*Row, error) {
 	return &Row{Schema: []int{0}, Values: []string{s[:len(s)-1]}}, nil
 }
 
+func (writer *TextWriter) Init(names *ColumnNames, schema []int) error {
+	return nil
+}
+
 func (writer *TextWriter) WriteRow(row *Row, options *WriteOptions) error {
 	for _, s := range row.Values {
 		_, err := writer.buffer.WriteString(s)

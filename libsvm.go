@@ -15,7 +15,12 @@ type LibSVMWriter struct {
 	buffer *bufio.Writer
 }
 
-// WriteString outputs a libSVM representation of a Row
+// Init for libSVM does nothing
+func (rowWriter *LibSVMWriter) Init(names *ColumnNames, schema []int) (err error) {
+	return nil
+}
+
+// WriteRow outputs a libSVM representation of a Row
 func (rowWriter *LibSVMWriter) WriteRow(row *Row, options *WriteOptions) error {
 	var buffer bytes.Buffer
 

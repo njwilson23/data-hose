@@ -2,6 +2,8 @@ package main
 
 import "errors"
 
+/* This file declares the primary data structures used throughout */
+
 // ColumnNames is a collection of column name strings
 type ColumnNames []string
 
@@ -25,25 +27,30 @@ type Row struct {
 // of a file
 type Section []Row
 
-// ReadableFormat is an interface for possible input formats
+// RowBasedReader is an interface for possible input formats
 type RowBasedReader interface {
 	ReadRow(*ReadOptions) (*Row, error)
 }
 
 type RowBasedWriter interface {
+	Init(*ColumnNames, []int) error
 	WriteRow(*Row, *WriteOptions) error
 	Flush() error
 }
 
+// ReadOptions describes the parameters that may be required by a reader
 type ReadOptions struct {
-	nSkipRows int
-	nRows     int
+	nSkipRows int // how many rows should be skipped before reading?
+	nRows     int // how many rows should be read?
 }
 
+// WriteOptions describes the parameters that may be required by a writer
 type WriteOptions struct {
-	targetCol int
-	nRows     int
-	append    bool
+	targetCol int  // which column is the target value (libSVM)
+	nRows     int  // how many rows should be written
+	append    bool // is this an append operation?
+	header    bool // should the writer begin with a header, if applicable?
 }
 
-var EMPTY_LINE_ERROR = errors.New("empty line encountered")
+// EmptyLineError indicates that a line contained no content
+var EmptyLineError = errors.New("empty line encountered")
