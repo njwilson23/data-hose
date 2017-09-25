@@ -1,39 +1,82 @@
 package main
 
+import "errors"
+
 // Transformer is a function that takes a Row pointer and a row number and returns a Row pointer
-type Transformer func(int, *Row) *Row
+type Transformer func(input <-chan *Row, output chan<- *Row)
 
 // RowSkipper returns a transformation that skips *n* rows
 func RowSkipper(n int) Transformer {
-	return func(count int, row *Row) *Row {
-		if count < n {
-			return nil
+	return func(input <-chan *Row, output chan<- *Row) {
+		count := 0
+		for row := range input {
+			if count >= n {
+				output <- row
+			}
+			count++
 		}
-		return row
+		close(output)
 	}
 }
 
-func contains(strings []string, name string) bool {
-	for _, s := range strings {
-		if s == name {
-			return true
+// RowLimiter returns a transformation that stops after *n* rows
+func RowLimiter(n int) Transformer {
+	return func(input <-chan *Row, output chan<- *Row) {
+		count := 0
+		for row := range input {
+			output <- row
+			count++
+			if count == n {
+				break
+			}
+		}
+		close(output)
+	}
+}
+
+func argin(args []string, m string) (int, error) {
+	for i, a := range args {
+		if a == m {
+			return i, nil
 		}
 	}
-	return false
+	return -1, errors.New("not found")
 }
 
 func ColumnSelector(columns []string) Transformer {
-	return func(count int, row *Row) *Row {
-		var selected []string
-		for i, name := range row.ColumnNames {
-			if contains(columns, name) {
-				selected = append(selected, row.Values[i])
+	return func(input <-chan *Row, output chan<- *Row) {
+		indices := make([]int, len(columns))
+		row := <-input
+		for _, col := range columns {
+			idx, err := argin(row.ColumnNames, col)
+			if err != nil {
+				panic(err)
 			}
+			indices = append(indices, idx)
 		}
-		return &Row{columns, selected}
+
+		values := make([]string, len(indices))
+		for _, idx := range indices {
+			values = append(values, row.Values[idx])
+		}
+		newRow := &Row{columns, values}
+		output <- newRow
+
+		for row := range input {
+			values = make([]string, len(indices))
+			for _, idx := range indices {
+				values = append(values, row.Values[idx])
+			}
+			newRow = &Row{columns, values}
+			output <- newRow
+		}
+		close(output)
 	}
 }
 
-func IdentityTransformer(count int, row *Row) *Row {
-	return row
+func IdentityTransformer(input <-chan *Row, output chan<- *Row) {
+	for row := range input {
+		output <- row
+	}
+	close(output)
 }

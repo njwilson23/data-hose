@@ -48,7 +48,7 @@ func main() {
 		},
 		cli.IntFlag{
 			Name:  "n, nrows",
-			Value: -1,
+			Value: 0,
 			Usage: "number of rows to take",
 		},
 	}
@@ -73,9 +73,19 @@ func main() {
 
 		// Create processor channels
 		pipeline := Pipeline{}
-		pipeline.Add(IdentityTransformer)
-		//pipeline.Add(RowSkipper(c.Int("s")))
-		//pipeline.Add(ColumnSelector(cols))
+
+		if c.Int("s") != 0 {
+			pipeline.Add(RowSkipper(c.Int("s")))
+		}
+
+		if c.Int("n") != 0 {
+			pipeline.Add(RowLimiter(c.Int("n")))
+		}
+
+		if pipeline.Length() == 0 {
+			// Need at least on transformation to connect input and output channels
+			pipeline.Add(IdentityTransformer)
+		}
 
 		go pipeline.Run(cin, cout)
 

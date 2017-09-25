@@ -5,6 +5,11 @@ type Pipeline struct {
 	Transformers []Transformer
 }
 
+// Length returns the number of steps in the pipeline
+func (p *Pipeline) Length() int {
+	return len(p.Transformers)
+}
+
 // Add adds a transformer to the pipeline
 func (p *Pipeline) Add(tf Transformer) error {
 	p.Transformers = append(p.Transformers, tf)
@@ -25,18 +30,8 @@ func (p *Pipeline) Run(input chan *Row, output chan *Row) error {
 			cout = make(chan *Row)
 		}
 
-		go func(cin <-chan *Row, cout chan<- *Row) {
-			var transformedRow *Row
-			rowCount := 0
-			for row := range cin {
-				transformedRow = tf(rowCount, row)
-				if transformedRow != nil {
-					cout <- transformedRow
-				}
-				rowCount++
-			}
-			close(cout)
-		}(cin, cout)
+		go tf(cin, cout)
+
 		cin = cout
 	}
 
