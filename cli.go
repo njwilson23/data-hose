@@ -1,11 +1,8 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
+	"io"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/urfave/cli"
 )
@@ -19,102 +16,81 @@ var MissingFileError = cli.NewExitError("input file not found", 1)
 func main() {
 	app := cli.NewApp()
 	app.Name = "hose"
-	app.Version = "0.2.0"
-	app.Usage = "Utility for managing big row-based datasets"
+	app.Version = "0.3.0"
+	app.Usage = "Streaming tool for big row-based datasets"
 	app.Authors = []cli.Author{cli.Author{Name: "Nat Wilson"}}
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
-			Name:  "output, o",
+			Name:  "o, output",
 			Value: "",
 			Usage: "`PATH` to direct output to (if not given, writes to stdout)",
 		},
 		cli.StringFlag{
-			Name:  "from, f",
+			Name:  "f, from",
 			Value: "",
-			Usage: "input `FORMAT` (if not given, guessed from extension)",
+			Usage: "output `FORMAT` (if not given, assumed CSV)",
 		},
 		cli.StringFlag{
-			Name:  "to, t",
+			Name:  "c, columns",
 			Value: "",
-			Usage: "output `FORMAT` (if not given, guessed from extension)",
+			Usage: "specifies columns to take, by name or index",
+		},
+		cli.StringFlag{
+			Name:  "p, predicate",
+			Value: "",
+			Usage: "specifies a row-dependent predicate to filter rows",
 		},
 		cli.IntFlag{
-			Name:  "start, s",
+			Name:  "s, start",
 			Value: 0,
 			Usage: "`ROW` to slice from",
 		},
 		cli.IntFlag{
-			Name:  "end, e",
+			Name:  "n, nrows",
 			Value: -1,
-			Usage: "`ROW` to slice to",
+			Usage: "number of rows to take",
 		},
 	}
 
 	app.Action = func(c *cli.Context) error {
-		if c.NArg() < 1 {
-			cli.ShowCommandHelp(c, "")
-			return UsageError
-		}
 
-		var filetype string
-		readers := make([]RowBasedReader, len(c.Args()))
-		for i, path := range c.Args() {
-			if _, err := os.Stat(path); os.IsNotExist(err) {
-				fmt.Println(path)
-				return MissingFileError
-			}
+		var err error
+		cin := make(chan *Row)
+		cout := make(chan *Row)
 
-			f, err := os.Open(path)
-			if err != nil {
-				return cli.NewExitError("failed to open file", 2)
-			}
-
-			if c.String("from") != "" {
-				filetype = c.String("from")
-			} else {
-				filetype = strings.Trim(filepath.Ext(path), ".")
-			}
-			if len(filetype) == 0 {
-				return cli.NewExitError("input filetype unknown", 1)
-			}
-
-			reader, err := getReader(filetype, bufio.NewReader(f))
+		// Create input channel
+		var reader io.Reader
+		if c.NArg() == 0 {
+			reader = os.Stdin
+		} else {
+			reader, err = os.Open(c.Args().Get(0))
 			if err != nil {
 				return err
 			}
+		}
+		go readInputRows(reader, cin)
 
-			readers[i] = reader
+		// Create processor channels
+		pipeline := Pipeline{}
+		pipeline.Add(IdentityTransformer)
+		//pipeline.Add(RowSkipper(c.Int("s")))
+		//pipeline.Add(ColumnSelector(cols))
+
+		go pipeline.Run(cin, cout)
+
+		// Create an output
+		var writer io.Writer
+		if c.String("output") == "" {
+			writer = os.Stdout
+		} else {
+			writer, err = os.Create(c.String("output"))
+			if err != nil {
+				return err
+			}
 		}
 
-		fout, err := createOutput(c.String("output"))
-		if err != nil {
-			return err
-		}
-
-		filetype = ""
-		if c.String("to") != "" {
-			filetype = c.String("to")
-		} else if c.String("output") != "" {
-			filetype = strings.Trim(filepath.Ext(c.String("output")), ".")
-		}
-		if filetype == "" {
-			return cli.NewExitError("output filetype unknown", 1)
-		}
-
-		writer, err := getWriter(filetype, fout)
-		if err != nil {
-			return err
-		}
-
-		readOpt := &ReadOptions{
-			nSkipRows: c.Int("start"),
-			nRows:     c.Int("end") - c.Int("start"),
-		}
-
-		writeOpt := &WriteOptions{}
-
-		return Merge(readers, writer, readOpt, writeOpt)
+		return writeCSVRows(writer, cout)
 	}
 
 	app.Run(os.Args)
