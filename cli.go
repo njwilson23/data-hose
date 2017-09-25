@@ -17,7 +17,7 @@ var MissingFileError = cli.NewExitError("input file not found", 1)
 
 func main() {
 	app := cli.NewApp()
-	app.Name = "hose"
+	app.Name = "flt"
 	app.Version = "0.3.0"
 	app.Usage = "Streaming tool for big row-based datasets"
 	app.Authors = []cli.Author{cli.Author{Name: "Nat Wilson"}}
