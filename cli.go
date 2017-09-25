@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"os"
+	"strings"
 
 	"github.com/urfave/cli"
 )
@@ -42,7 +43,7 @@ func main() {
 			Usage: "specifies a row-dependent predicate to filter rows",
 		},
 		cli.IntFlag{
-			Name:  "s, start",
+			Name:  "s, skip",
 			Value: 0,
 			Usage: "`ROW` to slice from",
 		},
@@ -74,12 +75,16 @@ func main() {
 		// Create processor channels
 		pipeline := Pipeline{}
 
-		if c.Int("s") != 0 {
-			pipeline.Add(RowSkipper(c.Int("s")))
+		if c.Int("skip") != 0 {
+			pipeline.Add(RowSkipper(c.Int("skip")))
 		}
 
-		if c.Int("n") != 0 {
-			pipeline.Add(RowLimiter(c.Int("n")))
+		if c.Int("nrows") != 0 {
+			pipeline.Add(RowLimiter(c.Int("nrows")))
+		}
+
+		if c.String("columns") != "" {
+			pipeline.Add(ColumnSelector(strings.Split(c.String("columns"), ",")))
 		}
 
 		if pipeline.Length() == 0 {

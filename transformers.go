@@ -1,6 +1,8 @@
 package main
 
-import "errors"
+import (
+	"errors"
+)
 
 // Transformer is a function that takes a Row pointer and a row number and returns a Row pointer
 type Transformer func(input <-chan *Row, output chan<- *Row)
@@ -47,25 +49,25 @@ func ColumnSelector(columns []string) Transformer {
 	return func(input <-chan *Row, output chan<- *Row) {
 		indices := make([]int, len(columns))
 		row := <-input
-		for _, col := range columns {
+		for i, col := range columns {
 			idx, err := argin(row.ColumnNames, col)
 			if err != nil {
 				panic(err)
 			}
-			indices = append(indices, idx)
+			indices[i] = idx
 		}
 
 		values := make([]string, len(indices))
-		for _, idx := range indices {
-			values = append(values, row.Values[idx])
+		for i, idx := range indices {
+			values[i] = row.Values[idx]
 		}
 		newRow := &Row{columns, values}
 		output <- newRow
 
 		for row := range input {
 			values = make([]string, len(indices))
-			for _, idx := range indices {
-				values = append(values, row.Values[idx])
+			for i, idx := range indices {
+				values[i] = row.Values[idx]
 			}
 			newRow = &Row{columns, values}
 			output <- newRow
