@@ -83,6 +83,10 @@ func main() {
 			pipeline.Add(RowLimiter(c.Int("nrows")))
 		}
 
+		if c.String("predicate") != "" {
+			pipeline.Add(Predicator(c.String("predicate")))
+		}
+
 		if c.String("columns") != "" {
 			pipeline.Add(ColumnSelector(strings.Split(c.String("columns"), ",")))
 		}

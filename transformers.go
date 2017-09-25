@@ -2,10 +2,14 @@ package main
 
 import (
 	"errors"
+	"strings"
 )
 
 // Transformer is a function that takes a Row pointer and a row number and returns a Row pointer
 type Transformer func(input <-chan *Row, output chan<- *Row)
+
+// Filter is a function that takes a row and indicates whether it is to be accepted or excluded
+type Filter func(*Row) bool
 
 // RowSkipper returns a transformation that skips *n* rows
 func RowSkipper(n int) Transformer {
@@ -45,10 +49,16 @@ func argin(args []string, m string) (int, error) {
 	return -1, errors.New("not found")
 }
 
+// ColumnSelector creates a Transformer that retains a subset of columns
 func ColumnSelector(columns []string) Transformer {
 	return func(input <-chan *Row, output chan<- *Row) {
 		indices := make([]int, len(columns))
 		row := <-input
+		if row == nil {
+			// There are no rows to process, so shutter
+			close(output)
+			return
+		}
 		for i, col := range columns {
 			idx, err := argin(row.ColumnNames, col)
 			if err != nil {
@@ -76,6 +86,34 @@ func ColumnSelector(columns []string) Transformer {
 	}
 }
 
+func predicateAsFunc(predicate string) Filter {
+	parts := strings.SplitN(predicate, "=", 2)
+	if len(parts) != 2 {
+		panic("misunderstood predicate")
+	}
+	return func(row *Row) bool {
+		colIdx, err := argin(row.ColumnNames, strings.TrimSpace(parts[0]))
+		if err != nil {
+			panic(err)
+		}
+		return row.Values[colIdx] == strings.TrimSpace(parts[1])
+	}
+}
+
+// Predicator converts a string predicate into a function that applies it
+func Predicator(predicate string) Transformer {
+	filter := predicateAsFunc(predicate)
+	return func(input <-chan *Row, output chan<- *Row) {
+		for row := range input {
+			if filter(row) {
+				output <- row
+			}
+		}
+		close(output)
+	}
+}
+
+// IdentityTransformer passes input through unmodified
 func IdentityTransformer(input <-chan *Row, output chan<- *Row) {
 	for row := range input {
 		output <- row
