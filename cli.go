@@ -115,12 +115,16 @@ func main() {
 			}
 		}
 
-		if c.String("f") == "csv" {
+		switch c.String("format") {
+		case "csv":
 			return writeCSVRows(writer, cout)
-		} else if c.String("format") == "libsvm" {
+		case "json":
+			return writeJSONRows(writer, cout)
+		case "libsvm":
 			return writeLibSVMRows(writer, cout, c.Int("libsvm-label"))
+		default:
+			return errors.New("unhandled output format")
 		}
-		return errors.New("unhandled output type")
 	}
 
 	app.Run(os.Args)
