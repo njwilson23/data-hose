@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"io"
 	"os"
 	"strings"
@@ -28,9 +29,14 @@ func main() {
 			Usage: "`PATH` to direct output to (if not given, writes to stdout)",
 		},
 		cli.StringFlag{
-			Name:  "f, from",
-			Value: "",
+			Name:  "f, format",
+			Value: "csv",
 			Usage: "output `FORMAT` (if not given, assumed CSV)",
+		},
+		cli.IntFlag{
+			Name:  "libsvm-label",
+			Value: 0,
+			Usage: "column to use as label when exporting to libSVM format",
 		},
 		cli.StringFlag{
 			Name:  "c, columns",
@@ -109,7 +115,12 @@ func main() {
 			}
 		}
 
-		return writeCSVRows(writer, cout)
+		if c.String("f") == "csv" {
+			return writeCSVRows(writer, cout)
+		} else if c.String("format") == "libsvm" {
+			return writeLibSVMRows(writer, cout, c.Int("libsvm-label"))
+		}
+		return errors.New("unhandled output type")
 	}
 
 	app.Run(os.Args)
