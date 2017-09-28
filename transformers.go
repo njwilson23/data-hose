@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -61,33 +62,24 @@ func argin(args []string, m string) (int, error) {
 // ColumnIntSelector creates a Transformer that retains a subset of columns based on column indices
 func ColumnIntSelector(indices []int) Transformer {
 	return func(input <-chan *Row, output chan<- *Row) {
-		columns := make([]string, len(indices))
-		row := <-input
-		if row == nil {
-			// There are no rows to process, so shutter
-			close(output)
-			return
-		}
-		for i, idx := range indices {
-			if idx >= len(row.ColumnNames) {
-				panic("column index out of range")
-			}
-			columns[i] = row.ColumnNames[idx]
-		}
-
-		values := make([]string, len(indices))
-		for i, idx := range indices {
-			values[i] = row.Values[idx]
-		}
-		newRow := &Row{columns, values}
-		output <- newRow
-
+		var colnames, values []string
+		var newRow *Row
+		first := true
 		for row := range input {
+			if first {
+				first = !first
+				for _, idx := range indices {
+					if idx > len(row.ColumnNames) {
+						panic(fmt.Sprintf("index %d exceeds row length (%d)", idx, len(row.ColumnNames)))
+					}
+					colnames = append(colnames, row.ColumnNames[idx])
+				}
+			}
 			values = make([]string, len(indices))
 			for i, idx := range indices {
 				values[i] = row.Values[idx]
 			}
-			newRow = &Row{columns, values}
+			newRow = &Row{colnames, values}
 			output <- newRow
 		}
 		close(output)
@@ -104,6 +96,8 @@ func ColumnStringSelector(columns []string) Transformer {
 			close(output)
 			return
 		}
+
+		// Determine the column indices
 		for i, col := range columns {
 			idx, err := argin(row.ColumnNames, col)
 			if err != nil {
@@ -112,22 +106,13 @@ func ColumnStringSelector(columns []string) Transformer {
 			indices[i] = idx
 		}
 
-		values := make([]string, len(indices))
-		for i, idx := range indices {
-			values[i] = row.Values[idx]
-		}
-		newRow := &Row{columns, values}
-		output <- newRow
-
+		newInput := make(chan *Row)
+		go ColumnIntSelector(indices)(newInput, output)
+		newInput <- row
 		for row := range input {
-			values = make([]string, len(indices))
-			for i, idx := range indices {
-				values[i] = row.Values[idx]
-			}
-			newRow = &Row{columns, values}
-			output <- newRow
+			newInput <- row
 		}
-		close(output)
+		close(newInput)
 	}
 }
 
