@@ -28,15 +28,15 @@ func main() {
 			Value: "",
 			Usage: "`PATH` to direct output to (if not given, writes to stdout)",
 		},
-		cli.StringFlag{
-			Name:  "f, format",
-			Value: "csv",
-			Usage: "output `FORMAT` (if not given, assumed CSV)",
+		cli.IntFlag{
+			Name:  "s, skip",
+			Value: 0,
+			Usage: "`ROW` to slice from",
 		},
 		cli.IntFlag{
-			Name:  "libsvm-label",
+			Name:  "n, nrows",
 			Value: 0,
-			Usage: "column to use as label when exporting to libSVM format",
+			Usage: "number of rows to take",
 		},
 		cli.StringFlag{
 			Name:  "c, columns",
@@ -48,15 +48,15 @@ func main() {
 			Value: "",
 			Usage: "specifies a row-dependent predicate to filter rows",
 		},
-		cli.IntFlag{
-			Name:  "s, skip",
-			Value: 0,
-			Usage: "`ROW` to slice from",
+		cli.StringFlag{
+			Name:  "f, format",
+			Value: "csv",
+			Usage: "output `FORMAT` (if not given, assumed CSV)",
 		},
 		cli.IntFlag{
-			Name:  "n, nrows",
+			Name:  "libsvm-label",
 			Value: 0,
-			Usage: "number of rows to take",
+			Usage: "column to use as label when exporting to libSVM format",
 		},
 	}
 
