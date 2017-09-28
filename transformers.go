@@ -40,6 +40,15 @@ func RowLimiter(n int) Transformer {
 	}
 }
 
+func contains(set []int, item int) bool {
+	for _, i := range set {
+		if i == item {
+			return true
+		}
+	}
+	return false
+}
+
 func argin(args []string, m string) (int, error) {
 	for i, a := range args {
 		if a == m {
@@ -49,8 +58,44 @@ func argin(args []string, m string) (int, error) {
 	return -1, errors.New("not found")
 }
 
-// ColumnSelector creates a Transformer that retains a subset of columns
-func ColumnSelector(columns []string) Transformer {
+// ColumnIntSelector creates a Transformer that retains a subset of columns based on column indices
+func ColumnIntSelector(indices []int) Transformer {
+	return func(input <-chan *Row, output chan<- *Row) {
+		columns := make([]string, len(indices))
+		row := <-input
+		if row == nil {
+			// There are no rows to process, so shutter
+			close(output)
+			return
+		}
+		for i, idx := range indices {
+			if idx >= len(row.ColumnNames) {
+				panic("column index out of range")
+			}
+			columns[i] = row.ColumnNames[idx]
+		}
+
+		values := make([]string, len(indices))
+		for i, idx := range indices {
+			values[i] = row.Values[idx]
+		}
+		newRow := &Row{columns, values}
+		output <- newRow
+
+		for row := range input {
+			values = make([]string, len(indices))
+			for i, idx := range indices {
+				values[i] = row.Values[idx]
+			}
+			newRow = &Row{columns, values}
+			output <- newRow
+		}
+		close(output)
+	}
+}
+
+// ColumnStringSelector creates a Transformer that retains a subset of columns
+func ColumnStringSelector(columns []string) Transformer {
 	return func(input <-chan *Row, output chan<- *Row) {
 		indices := make([]int, len(columns))
 		row := <-input

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/urfave/cli"
@@ -94,7 +95,24 @@ func main() {
 		}
 
 		if c.String("columns") != "" {
-			pipeline.Add(ColumnSelector(strings.Split(c.String("columns"), ",")))
+			cols := strings.Split(c.String("columns"), ",")
+			var indices []int
+			intConversionFailure := false
+			for _, col := range cols {
+				idx, err := strconv.Atoi(col)
+				if err != nil {
+					intConversionFailure = true
+					break
+				}
+				indices = append(indices, idx)
+			}
+			var tf Transformer
+			if !intConversionFailure {
+				tf = ColumnIntSelector(indices)
+			} else {
+				tf = ColumnStringSelector(cols)
+			}
+			pipeline.Add(tf)
 		}
 
 		if pipeline.Length() == 0 {
