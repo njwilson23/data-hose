@@ -35,9 +35,15 @@ func (rowWriter *LibSVMWriter) Write(row *Row, label int) error {
 	// Write label
 	buffer.WriteString(row.Values[label])
 
+	var key string
+
 	for i, value := range row.Values {
 		if i == label {
 			continue
+		} else if i < label {
+			key = strconv.Itoa(i)
+		} else {
+			key = strconv.Itoa(i - 1)
 		}
 
 		fp, err := strconv.ParseFloat(value, 64)
@@ -45,7 +51,7 @@ func (rowWriter *LibSVMWriter) Write(row *Row, label int) error {
 			continue
 		}
 		buffer.WriteRune(' ')
-		buffer.WriteString(strconv.Itoa(i))
+		buffer.WriteString(key)
 		buffer.WriteRune(':')
 		buffer.WriteString(strconv.FormatFloat(fp, 'f', -1, 64))
 	}
