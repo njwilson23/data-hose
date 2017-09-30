@@ -6,10 +6,13 @@ import (
 	"strings"
 )
 
-// Transformer is a function that takes a Row pointer and a row number and returns a Row pointer
+// Transformer functions represent a transformation from (one or many) Row
+// pointers to (one or many) Row pointers. A Transformer should close its output
+// channel when finished with it.
 type Transformer func(input <-chan *Row, output chan<- *Row)
 
-// Filter is a function that takes a row and indicates whether it is to be accepted or excluded
+// Filter is a function that takes a Row pointer and indicates whether it is to
+// be accepted or excluded
 type Filter func(*Row) bool
 
 // RowSkipper returns a transformation that skips *n* rows
@@ -116,10 +119,10 @@ func ColumnStringSelector(columns []string) Transformer {
 	}
 }
 
-func predicateAsFunc(predicate string) Filter {
+func predicateAsFunc(predicate string) (Filter, error) {
 	parts := strings.SplitN(predicate, "=", 2)
 	if len(parts) != 2 {
-		panic("misunderstood predicate")
+		return nil, errors.New("predicate parsing error")
 	}
 	return func(row *Row) bool {
 		colIdx, err := argin(row.ColumnNames, strings.TrimSpace(parts[0]))
@@ -127,12 +130,16 @@ func predicateAsFunc(predicate string) Filter {
 			panic(err)
 		}
 		return row.Values[colIdx] == strings.TrimSpace(parts[1])
-	}
+	}, nil
 }
 
 // Predicator converts a string predicate into a function that applies it
 func Predicator(predicate string) Transformer {
-	filter := predicateAsFunc(predicate)
+	filter, err := predicateAsFunc(predicate)
+	if err != nil {
+		// predicate unparseable
+		panic(err)
+	}
 	return func(input <-chan *Row, output chan<- *Row) {
 		for row := range input {
 			if filter(row) {

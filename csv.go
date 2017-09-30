@@ -2,30 +2,72 @@ package main
 
 import (
 	"encoding/csv"
+	"fmt"
 	"io"
+	"strings"
 )
 
-func readInputRows(reader io.Reader, ch chan<- *Row) {
-	csvReader := csv.NewReader(reader)
+func getColumnNames(csvReader *csv.Reader) []string {
 	columnNames, err := csvReader.Read()
 	if err != nil {
 		panic(err)
 	}
-	rowCount := 0
 
-	var row *Row
-	for {
-		record, err := csvReader.Read()
-		if err == io.EOF {
-			close(ch)
-			break
-		} else if err != nil {
-			panic(err)
-		}
-		row = &Row{columnNames, record}
-		ch <- row
-		rowCount++
+	for i, colName := range columnNames {
+		columnNames[i] = strings.TrimSpace(colName)
 	}
+	return columnNames
+}
+
+// readInputRows reads all rows from a slice of io.Readers, inserting them into
+// a channel in order. If the column names don't match across files, a panic
+// occurs
+func readInputRows(readers []io.Reader, ch chan<- *Row) {
+
+	var csvReaders []*csv.Reader
+	var colNames []string
+	firstFile := true
+
+	// Ensure column names match
+	for _, reader := range readers {
+		csvReader := csv.NewReader(reader)
+		csvReaders = append(csvReaders, csvReader)
+
+		if firstFile {
+			firstFile = !firstFile
+			colNames = getColumnNames(csvReader)
+			continue
+		}
+
+		nextColNames := getColumnNames(csvReader)
+		for i, col := range colNames {
+			if nextColNames[i] != col {
+				panic(fmt.Sprintf("column mismatch in file %d\n", i))
+			}
+		}
+	}
+
+	rowCount := 0
+	var row *Row
+	for _, csvReader := range csvReaders {
+		for {
+			record, err := csvReader.Read()
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				panic(err)
+			}
+
+			for i, value := range record {
+				record[i] = strings.TrimSpace(value)
+			}
+
+			row = &Row{colNames, record}
+			ch <- row
+			rowCount++
+		}
+	}
+	close(ch)
 	return
 }
 

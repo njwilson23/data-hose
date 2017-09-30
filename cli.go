@@ -36,7 +36,7 @@ func main() {
 		},
 		cli.IntFlag{
 			Name:  "n, nrows",
-			Value: 0,
+			Value: -1,
 			Usage: "number of rows to take",
 		},
 		cli.StringFlag{
@@ -68,16 +68,21 @@ func main() {
 		cout := make(chan *Row)
 
 		// Create input channel
-		var reader io.Reader
+		var readers []io.Reader
 		if c.NArg() == 0 {
-			reader = os.Stdin
+			readers = []io.Reader{os.Stdin}
 		} else {
-			reader, err = os.Open(c.Args().Get(0))
-			if err != nil {
-				return err
+			for i := 0; i != c.NArg(); i++ {
+				reader, err := os.Open(c.Args().Get(i))
+				if err != nil {
+					return MissingFileError
+				}
+				readers = append(readers, reader)
 			}
+
 		}
-		go readInputRows(reader, cin)
+
+		go readInputRows(readers, cin)
 
 		// Create processor channels
 		pipeline := Pipeline{}
@@ -86,7 +91,7 @@ func main() {
 			pipeline.Add(RowSkipper(c.Int("skip")))
 		}
 
-		if c.Int("nrows") != 0 {
+		if c.Int("nrows") != -1 {
 			pipeline.Add(RowLimiter(c.Int("nrows")))
 		}
 
