@@ -64,8 +64,14 @@ func main() {
 	app.Action = func(c *cli.Context) error {
 
 		var err error
-		cin := make(chan *Row)
-		cout := make(chan *Row)
+
+		// enable profiling
+		//f, err := os.Create("flt.prof")
+		//pprof.StartCPUProfile(f)
+		//defer pprof.StopCPUProfile()
+
+		cin := make(chan *Row, 1000)
+		cout := make(chan *Row, 1000)
 
 		// Create input channel
 		var readers []io.Reader
